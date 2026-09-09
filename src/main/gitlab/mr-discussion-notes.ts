@@ -83,7 +83,8 @@ export async function fetchDiscussions(
   type: 'issue' | 'mr',
   iid: number,
   connectionId?: string | null,
-  localGitOptions: LocalGitExecOptions = {}
+  localGitOptions: LocalGitExecOptions = {},
+  page?: number
 ): Promise<GitLabRawDiscussion[]> {
   const resource = type === 'mr' ? 'merge_requests' : 'issues'
   const { stdout } = await glabExecFileAsync(
@@ -92,9 +93,35 @@ export async function fetchDiscussions(
       ...glabHostnameArgs(projectRef, connectionId),
       // Why: detail drawers need a bounded recent conversation snapshot.
       // Walking every historic discussion can retain and render huge note sets.
-      `projects/${encodedProject(projectRef.path)}/${resource}/${iid}/discussions?per_page=100`
+      `projects/${encodedProject(projectRef.path)}/${resource}/${iid}/discussions?per_page=100${page ? `&page=${page}` : ''}`
     ],
     glabRepoExecOptions(repoPath, connectionId, localGitOptions)
   )
   return JSON.parse(stdout) as GitLabRawDiscussion[]
+}
+
+/** Count all pages without retaining the full conversation. */
+export async function fetchUnresolvedDiscussionCount(
+  repoPath: string,
+  projectRef: ProjectRef,
+  iid: number,
+  connectionId?: string | null,
+  localGitOptions: LocalGitExecOptions = {}
+): Promise<number> {
+  let count = 0
+  for (let page = 1; ; page += 1) {
+    const discussions = await fetchDiscussions(
+      repoPath,
+      projectRef,
+      'mr',
+      iid,
+      connectionId,
+      localGitOptions,
+      page > 1 ? page : undefined
+    )
+    count += countUnresolvedDiscussions(discussions)
+    if (discussions.length < 100) {
+      return count
+    }
+  }
 }

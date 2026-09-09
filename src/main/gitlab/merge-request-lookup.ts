@@ -12,7 +12,7 @@ import {
   type ProjectRef
 } from './gl-utils'
 import { encodedProject } from './project-path-encoding'
-import { countUnresolvedDiscussions, fetchDiscussions } from './mr-discussion-notes'
+import { fetchUnresolvedDiscussionCount } from './mr-discussion-notes'
 import {
   hasHostedReviewLocalGitOptions,
   getHostedReviewLocalGitOptions,
@@ -63,15 +63,14 @@ async function withUnresolvedCommentCount(
     return { ...info, unresolvedReviewCommentCount: 0 }
   }
   try {
-    const discussions = await fetchDiscussions(
+    const count = await fetchUnresolvedDiscussionCount(
       repoPath,
       projectRef,
-      'mr',
       info.number,
       connectionId,
       localGitOptions
     )
-    return { ...info, unresolvedReviewCommentCount: countUnresolvedDiscussions(discussions) }
+    return { ...info, unresolvedReviewCommentCount: count }
   } catch {
     return info
   }
